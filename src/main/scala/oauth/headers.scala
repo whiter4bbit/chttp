@@ -1,8 +1,8 @@
 package info.whiter4bbit.chttp.oauth
 
 import scala.collection.mutable.{Map=>MMap}
-import info.whiter4bbit.chttp.util._
-import info.whiter4bbit.chttp.util.HeaderUtils._
+import info.whiter4bbit.chttp.oauth.util._
+import info.whiter4bbit.chttp.oauth.util.HeaderUtils._
 
 class OAuthHeader {
    var consumerKey: String = "" 
@@ -50,18 +50,12 @@ class OAuthHeader {
                         "oauth_timestamp" -> timestamp.toString)
       pin.map((v: String) => { params += (("oauth_verifier", v)) })
       token.map((v: String) => { params += (("oauth_token", v)) })
-
       var oauthData = OAuthUtil.encode(params.toMap, url, method)	
-      println("Data:" + oauthData)
       val secretKey = consumerSecret + "&" + tokenSecret.getOrElse("")	
-      println("Using secret key:" + secretKey)
       val oauthSignature = OAuthUtil.hmac(oauthData, secretKey)
       params += (("oauth_signature", oauthSignature))
-      
       val normalizedParams = params.map(e => (e._1, wrap(e._2))) 
-      var authHeader = "OAuth " + OAuthUtil.encodeParameters(normalizedParams.toMap, ",")
-      println("[Header]" + authHeader)
-      Map("Authorization" -> authHeader) 
+      "OAuth " + OAuthUtil.encodeParameters(normalizedParams.toMap, ",")
    }
 }
 

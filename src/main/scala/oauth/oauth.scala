@@ -1,77 +1,59 @@
 package info.whiter4bbit.chttp.oauth
 
 import info.whiter4bbit.chttp._
-import info.whiter4bbit.chttp.util._
-import scala.collection.mutable.{Map=>MMap}
+import scalaz._
+import Scalaz._
 
-import client._
+case class Token(val token: String, val tokenSecret: String)
 
-case class Token(token: String, tokenSecret: String)
-
-class OAuthHelper(val consumerKey: String, 
-                  val consumerSecret: String, 
-                  val apiURL: String = "https://api.twitter.com/oauth/", 
-		  val requestTokenPostfix: String = "request_token",
-		  val accessTokenPostfix: String = "access_token") {
-   import OAuthHelper._
-
-   def getRequestToken = 
-      client.POST(apiURL + requestTokenPostfix) << requestToken
-
-   def getAccessToken(pin: Option[String], token: Token) =
-      client.POST(apiURL + accessTokenPostfix) << accessToken(pin, token)
-   
-   def requestToken = new Headers {
-      def headers(req: HTTPRequest) = {       	
-	val header = new OAuthHeader
-	header.setConsumerKey(consumerKey)
-	header.setURL(req.url)
-	header.setMethod(req.method)
-	header.setConsumerSecret(consumerSecret)
-
-        Headers(header.build).headers(req)
-      }
-   }
-
-   def accessToken(pin: Option[String], token: Token) = new Headers {
-      def headers(req: HTTPRequest) = {
+class RequestTokenProcessor(val consumerKey: String, val consumerSecret: String) extends BundleProcessor {
+    def apply(bundle: Bundle): Validation[Exception, Bundle] = {
         val header = new OAuthHeader
-	header.setConsumerKey(consumerKey)
-	header.setURL(req.url)
-	header.setMethod(req.method)
-	header.setConsumerSecret(consumerSecret)
-	header.setToken(Some(token.token))
-	header.setPin(pin)
-	header.setTokenSecret(Some(token.tokenSecret))
+        header.setConsumerKey(consumerKey)
+        header.setURL(bundle.conn.getURL().toString)	
+        header.setMethod(bundle.conn.getRequestMethod())
+        header.setConsumerSecret(consumerSecret)
 
-        Headers(header.build).headers(req)
-      }
-   }
-
-   def accessToken(token: Token): Headers = accessToken(None, token) 
+        bundle.conn.setRequestProperty("Authorization", header.build) 	
+        bundle.success
+    }
 }
 
-object OAuthHelper { 
+class AccessTokenProcessor(val consumerKey: String, val consumerSecret: String, pin: Option[String], token: Token) 
+       extends BundleProcessor {
+     def this(consumerKey: String, consumerSecret: String, token: Token) = {
+        this(consumerKey, consumerSecret, None, token)
+     }
+     def apply(bundle: Bundle): Validation[Exception, Bundle] = {
+        val header = new OAuthHeader
+        header.setConsumerKey(consumerKey)
+        header.setURL(bundle.conn.getURL().toString)
+        header.setMethod(bundle.conn.getRequestMethod)
+        header.setConsumerSecret(consumerSecret)
+        header.setToken(Some(token.token))
+        header.setPin(pin)
+        header.setTokenSecret(Some(token.tokenSecret))
+
+        bundle.conn.setRequestProperty("Authorization", header.build)
+        bundle.success
+     }
+}
+
+object OAuthUtils {
+   import Shortcuts._
+
    def responseParameters(resp: String): Map[String, String] = {   
       Map(resp.split('&').toList.map((pair: String) => {        
          val header = pair.split('=')
-         (header(0), header(1))	    
+         (header(0), header(1))     
       }):_*)
    }
-   
-   class TokenResponse(val response: HTTPResponse) {
-      def as_token: Either[Token, Exception] = {
-	 for {
-	    body <- Either.LeftProjection(response.to_string)
-	 } yield {
-	    printf("[Body]%s\n", body)
-	    val headers = responseParameters(body)
-	    Token(headers("oauth_token"), headers("oauth_token_secret"))
-	 }
-      }
-   }  
-
-   implicit def responseToRequestToken(response: HTTPResponse): TokenResponse = 
-       new TokenResponse(response)
+   def request_token(consumerKey: String, consumerSecret: String) = 
+          new RequestTokenProcessor(consumerKey, consumerSecret)
+   def access_token(consumerKey: String, consumerSecret: String, pin: Option[String], token: Token) = 
+          new AccessTokenProcessor(consumerKey, consumerSecret, pin, token)
+   def as_token = as_string.!!((s: String) => {
+       val param = responseParameters(s) 
+       Token(param("oauth_token"), param("oauth_token_secret"))
+   })
 }
-

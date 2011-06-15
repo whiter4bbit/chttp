@@ -1,4 +1,4 @@
-package info.whiter4bbit.chttp.util
+package info.whiter4bbit.chttp.oauth.util
 
 import java.net.URLEncoder
 import java.security.SignatureException
