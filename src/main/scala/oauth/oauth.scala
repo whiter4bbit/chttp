@@ -52,7 +52,7 @@ object OAuthUtils {
           new RequestTokenProcessor(consumerKey, consumerSecret)
    def access_token(consumerKey: String, consumerSecret: String, pin: Option[String], token: Token) = 
           new AccessTokenProcessor(consumerKey, consumerSecret, pin, token)
-   def as_token = as_string.!!((s: String) => {
+   def as_token = as_string !! ((s: String) => {
        val param = responseParameters(s) 
        Token(param("oauth_token"), param("oauth_token_secret"))
    })
