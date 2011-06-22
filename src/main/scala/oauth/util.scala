@@ -53,6 +53,13 @@ object OAuthUtil {
     return base64.substring(0, base64.length - paddingCount) + "=" * paddingCount
   }
 
+  def bodyParameters(body: String): Map[String, String] = {   
+      Map(body.split('&').toList.map((pair: String) => {        
+         val header = pair.split('=')
+         (header(0), header(1))     
+      }):_*)
+   }
+
   def urlEncode(source: String): String = URLEncoder.encode(source, "utf-8")
 
   def encodeParameters(parameters: Map[String, String], sep: String): String =  
